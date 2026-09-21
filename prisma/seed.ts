@@ -42,15 +42,22 @@ async function main() {
   const name = process.env.ADMIN_NAME || "Accompagnatrice";
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // Si ADMIN_PASSWORD est explicitement défini, on (ré)initialise aussi le mot
+  // de passe à chaque exécution : cela permet de le changer via Vercel puis de
+  // redéployer. Sinon, on ne touche pas au mot de passe d'un compte existant.
+  const resetPassword = Boolean(process.env.ADMIN_PASSWORD);
+
   const admin = await prisma.user.upsert({
     where: { email },
-    update: { role: "ADMIN", name },
+    update: resetPassword ? { role: "ADMIN", name, passwordHash } : { role: "ADMIN", name },
     create: { email, name, role: "ADMIN", passwordHash },
   });
   console.log(`✔ Compte administrateur prêt : ${admin.email}`);
-  if (!process.env.ADMIN_PASSWORD) {
-    console.log("  Mot de passe par défaut : Admin1234  (à changer !)");
-  }
+  console.log(
+    resetPassword
+      ? "  Mot de passe défini depuis ADMIN_PASSWORD."
+      : "  Mot de passe par défaut : Admin1234  (définir ADMIN_PASSWORD pour le changer).",
+  );
 
   // --- Étapes par défaut (seulement si aucune n'existe) ---
   if ((await prisma.stage.count()) === 0) {
