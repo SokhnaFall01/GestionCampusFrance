@@ -3,16 +3,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { computeProbability } from "@/lib/scoring";
 import {
-  STAGES,
-  STAGE_LABELS,
-  DOCUMENT_LABELS,
   FRENCH_LEVELS,
   SELECTIVITY_LABELS,
   SELECTIVITY_LEVELS,
   MENTIONS,
   MENTION_LABELS,
-  type DocumentType,
-  type Stage,
   type ProbabilityLevel,
 } from "@/lib/constants";
 import { StageBadge, ProbabilityBadge, DocStatusBadge, DecisionBadge } from "@/components/badges";
@@ -55,17 +50,24 @@ function Section({ title, children, action }: { title: string; children: React.R
 
 export default async function StudentDossier({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const c = await prisma.candidate.findUnique({
-    where: { id },
-    include: {
-      user: true,
-      assessment: true,
-      documents: { orderBy: { type: "asc" } },
-      tasks: { orderBy: [{ done: "asc" }, { dueDate: "asc" }] },
-      studyWishes: { orderBy: { createdAt: "desc" } },
-      timeline: { orderBy: { createdAt: "desc" }, take: 30 },
-    },
-  });
+  const [c, stages] = await Promise.all([
+    prisma.candidate.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        assessment: true,
+        stage: true,
+        documents: {
+          include: { documentType: true },
+          orderBy: { documentType: { order: "asc" } },
+        },
+        tasks: { orderBy: [{ done: "asc" }, { dueDate: "asc" }] },
+        studyWishes: { orderBy: { createdAt: "desc" } },
+        timeline: { orderBy: { createdAt: "desc" }, take: 30 },
+      },
+    }),
+    prisma.stage.findMany({ orderBy: { order: "asc" } }),
+  ]);
   if (!c) notFound();
 
   const a = c.assessment;
@@ -100,7 +102,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
                 Niveau : {c.academicLevel || "—"} · Né(e) le {fmtDate(c.dateOfBirth)}
               </div>
               <div className="flex items-center gap-2 mt-3">
-                <StageBadge stage={c.stage} />
+                <StageBadge label={c.stage?.label} />
                 <ProbabilityBadge
                   level={a?.probabilityLevel as ProbabilityLevel | null}
                   score={a?.score}
@@ -114,10 +116,10 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
               <input type="hidden" name="candidateId" value={c.id} />
               <div>
                 <label className="label">Étape actuelle</label>
-                <select name="stage" defaultValue={c.stage} className="input">
-                  {STAGES.map((s) => (
-                    <option key={s} value={s}>
-                      {STAGE_LABELS[s as Stage]}
+                <select name="stageId" defaultValue={c.stageId ?? ""} className="input">
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
                     </option>
                   ))}
                 </select>
@@ -164,9 +166,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg ring-1 ring-border p-3"
                 >
                   <div>
-                    <div className="font-medium text-sm">
-                      {DOCUMENT_LABELS[d.type as DocumentType] ?? d.type}
-                    </div>
+                    <div className="font-medium text-sm">{d.documentType.label}</div>
                     <div className="text-xs text-muted">
                       {d.fileName ? (
                         <a

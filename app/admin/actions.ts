@@ -8,14 +8,8 @@ import { hashPassword, generateTempPassword } from "@/lib/password";
 import { logEvent } from "@/lib/events";
 import { computeProbability } from "@/lib/scoring";
 import {
-  DOCUMENT_TYPES,
   MAX_CANDIDATES,
-  STAGES,
-  STAGE_LABELS,
-  DOCUMENT_LABELS,
   DECISION_LABELS,
-  type Stage,
-  type DocumentType,
   type Mention,
   type FrenchLevel,
   type SelectivityLevel,
@@ -71,6 +65,11 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
     return { error: "Un compte existe déjà avec cet email." };
   }
 
+  const [firstStage, docTypes] = await Promise.all([
+    prisma.stage.findFirst({ orderBy: { order: "asc" } }),
+    prisma.documentType.findMany({ select: { id: true } }),
+  ]);
+
   const password = providedPassword || generateTempPassword();
   const passwordHash = await hashPassword(password);
 
@@ -79,11 +78,22 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
       data: { email, name: `${firstName} ${lastName}`, role: "CANDIDATE", passwordHash },
     });
     const cand = await tx.candidate.create({
-      data: { userId: user.id, firstName, lastName, phone, city, academicLevel, dateOfBirth },
+      data: {
+        userId: user.id,
+        firstName,
+        lastName,
+        phone,
+        city,
+        academicLevel,
+        dateOfBirth,
+        stageId: firstStage?.id ?? null,
+      },
     });
-    await tx.document.createMany({
-      data: DOCUMENT_TYPES.map((type) => ({ candidateId: cand.id, type })),
-    });
+    if (docTypes.length > 0) {
+      await tx.document.createMany({
+        data: docTypes.map((dt) => ({ candidateId: cand.id, documentTypeId: dt.id })),
+      });
+    }
     return cand;
   });
 
@@ -97,11 +107,14 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
 export async function updateStage(formData: FormData) {
   await requireAdmin();
   const candidateId = str(formData.get("candidateId"));
-  const stage = str(formData.get("stage")) as Stage;
-  if (!candidateId || !STAGES.includes(stage)) return;
+  const stageId = str(formData.get("stageId"));
+  if (!candidateId || !stageId) return;
 
-  await prisma.candidate.update({ where: { id: candidateId }, data: { stage } });
-  await logEvent(candidateId, "STAGE", `Étape : ${STAGE_LABELS[stage]}`, "ADMIN");
+  const stage = await prisma.stage.findUnique({ where: { id: stageId } });
+  if (!stage) return;
+
+  await prisma.candidate.update({ where: { id: candidateId }, data: { stageId } });
+  await logEvent(candidateId, "STAGE", `Étape : ${stage.label}`, "ADMIN");
   refresh(candidateId);
 }
 
@@ -164,11 +177,12 @@ export async function reviewDocument(formData: FormData) {
   const doc = await prisma.document.update({
     where: { id: documentId },
     data: { status: decision, reviewNote },
+    include: { documentType: true },
   });
   await logEvent(
     candidateId,
     "DOCUMENT",
-    `${DOCUMENT_LABELS[doc.type as DocumentType] ?? doc.type} : ${decision === "VALIDE" ? "validé" : "refusé"}`,
+    `${doc.documentType.label} : ${decision === "VALIDE" ? "validé" : "refusé"}`,
     "ADMIN",
   );
   refresh(candidateId);
@@ -257,8 +271,83 @@ export async function deleteStudent(formData: FormData) {
   const candidateId = str(formData.get("candidateId"));
   const candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
   if (!candidate) return;
-  // Supprime le User → cascade sur la fiche et ses données liées.
   await prisma.user.delete({ where: { id: candidate.userId } }).catch(() => {});
   revalidatePath("/admin");
   redirect("/admin");
+}
+
+// =============================================================================
+//  PARAMÈTRES : gestion des étapes et des types de documents
+// =============================================================================
+
+function refreshSettings() {
+  revalidatePath("/admin/parametres");
+  revalidatePath("/admin");
+  revalidatePath("/candidat");
+}
+
+// --- Étapes ---
+export async function addStage(formData: FormData) {
+  await requireAdmin();
+  const label = str(formData.get("label"));
+  if (!label) return;
+  const last = await prisma.stage.findFirst({ orderBy: { order: "desc" } });
+  await prisma.stage.create({ data: { label, order: (last?.order ?? 0) + 1 } });
+  refreshSettings();
+}
+
+export async function renameStage(formData: FormData) {
+  await requireAdmin();
+  const id = str(formData.get("id"));
+  const label = str(formData.get("label"));
+  if (!id || !label) return;
+  await prisma.stage.update({ where: { id }, data: { label } });
+  refreshSettings();
+}
+
+export async function deleteStage(formData: FormData) {
+  await requireAdmin();
+  const id = str(formData.get("id"));
+  if (!id) return;
+  await prisma.stage.delete({ where: { id } }).catch(() => {});
+  refreshSettings();
+}
+
+// --- Types de documents ---
+export async function addDocumentType(formData: FormData) {
+  await requireAdmin();
+  const label = str(formData.get("label"));
+  if (!label) return;
+
+  const last = await prisma.documentType.findFirst({ orderBy: { order: "desc" } });
+  const created = await prisma.documentType.create({
+    data: { label, order: (last?.order ?? 0) + 1 },
+  });
+
+  // Ajoute cette pièce à la checklist de tous les étudiants déjà existants.
+  const candidates = await prisma.candidate.findMany({ select: { id: true } });
+  if (candidates.length > 0) {
+    await prisma.document.createMany({
+      data: candidates.map((c) => ({ candidateId: c.id, documentTypeId: created.id })),
+    });
+  }
+  refreshSettings();
+}
+
+export async function renameDocumentType(formData: FormData) {
+  await requireAdmin();
+  const id = str(formData.get("id"));
+  const label = str(formData.get("label"));
+  if (!id || !label) return;
+  await prisma.documentType.update({ where: { id }, data: { label } });
+  refreshSettings();
+}
+
+export async function deleteDocumentType(formData: FormData) {
+  await requireAdmin();
+  const id = str(formData.get("id"));
+  if (!id) return;
+  // Cascade : supprime aussi les lignes Document liées (chez tous les candidats).
+  await prisma.documentType.delete({ where: { id } }).catch(() => {});
+  refreshSettings();
 }

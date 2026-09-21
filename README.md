@@ -10,6 +10,9 @@ avant acceptation d'un dossier.
 ### Espace accompagnatrice (admin)
 - Tableau de bord : liste des étudiants, statistiques (suivis, à évaluer, acceptés, actions en attente)
 - Création d'un compte étudiant (identifiants générés à transmettre)
+- **Paramètres** : ajout / renommage / suppression des étapes de la procédure et
+  des types de documents demandés (un nouveau document est automatiquement
+  ajouté à la checklist de tous les étudiants)
 - Dossier complet par étudiant :
   - Étape de la procédure (10 étapes, du premier contact au départ)
   - Documents (validation / refus avec motif)

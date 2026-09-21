@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireCandidate } from "@/lib/auth";
 import { saveUpload, deleteUpload } from "@/lib/storage";
 import { logEvent } from "@/lib/events";
-import { DOCUMENT_LABELS, type DocumentType } from "@/lib/constants";
 
 function str(v: FormDataEntryValue | null): string {
   return String(v ?? "").trim();
@@ -32,7 +31,10 @@ export async function uploadDocument(_prev: UploadState, formData: FormData): Pr
     return { error: "Veuillez choisir un fichier." };
   }
 
-  const doc = await prisma.document.findUnique({ where: { id: documentId } });
+  const doc = await prisma.document.findUnique({
+    where: { id: documentId },
+    include: { documentType: true },
+  });
   if (!doc || doc.candidateId !== candidate.id) {
     return { error: "Document introuvable." };
   }
@@ -57,7 +59,7 @@ export async function uploadDocument(_prev: UploadState, formData: FormData): Pr
     await logEvent(
       candidate.id,
       "DOCUMENT",
-      `Document déposé : ${DOCUMENT_LABELS[doc.type as DocumentType] ?? doc.type}`,
+      `Document déposé : ${doc.documentType.label}`,
       "CANDIDATE",
     );
     refresh(candidate.id);

@@ -3,8 +3,6 @@ import {
   DocumentStatus,
   PROBABILITY_LABELS,
   ProbabilityLevel,
-  STAGE_LABELS,
-  Stage,
   DECISION_LABELS,
   Decision,
 } from "@/lib/constants";
@@ -19,9 +17,10 @@ function Pill({ children, className }: { children: React.ReactNode; className: s
   );
 }
 
-export function StageBadge({ stage }: { stage: string }) {
-  const label = STAGE_LABELS[stage as Stage] ?? stage;
-  return <Pill className="bg-blue-50 text-blue-700 ring-1 ring-blue-200">{label}</Pill>;
+export function StageBadge({ label }: { label: string | null | undefined }) {
+  return (
+    <Pill className="bg-blue-50 text-blue-700 ring-1 ring-blue-200">{label ?? "—"}</Pill>
+  );
 }
 
 export function ProbabilityBadge({

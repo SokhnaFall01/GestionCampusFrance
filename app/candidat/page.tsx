@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { requireCandidate } from "@/lib/auth";
-import { STAGE_LABELS, DOCUMENT_LABELS, type DocumentType, type Stage } from "@/lib/constants";
 import { StageBadge, DocStatusBadge } from "@/components/badges";
 import { UploadForm } from "@/components/upload-form";
 import { WishForm } from "@/components/wish-form";
@@ -26,7 +25,11 @@ export default async function CandidatDashboard() {
     where: { id: candidate.id },
     include: {
       assessment: true,
-      documents: { orderBy: { type: "asc" } },
+      stage: true,
+      documents: {
+        include: { documentType: true },
+        orderBy: { documentType: { order: "asc" } },
+      },
       tasks: { orderBy: [{ done: "asc" }, { dueDate: "asc" }] },
       studyWishes: { orderBy: { createdAt: "desc" } },
       timeline: { orderBy: { createdAt: "desc" }, take: 15 },
@@ -46,7 +49,7 @@ export default async function CandidatDashboard() {
         </p>
         <div className="mt-3 flex items-center gap-2">
           <span className="text-sm text-muted">Étape :</span>
-          <StageBadge stage={c.stage} />
+          <StageBadge label={c.stage?.label} />
         </div>
         {decision === "ACCEPTE" && (
           <div className="mt-3 rounded-lg bg-green-50 text-green-700 text-sm px-3 py-2 ring-1 ring-green-200">
@@ -63,9 +66,7 @@ export default async function CandidatDashboard() {
             return (
               <div key={d.id} className="rounded-lg ring-1 ring-border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-medium text-sm">
-                    {DOCUMENT_LABELS[d.type as DocumentType] ?? d.type}
-                  </div>
+                  <div className="font-medium text-sm">{d.documentType.label}</div>
                   <DocStatusBadge status={d.status} />
                 </div>
                 {d.fileName && (
@@ -82,12 +83,7 @@ export default async function CandidatDashboard() {
                 {d.status === "REFUSE" && d.reviewNote && (
                   <div className="text-xs text-red-600 mt-1">Motif : {d.reviewNote}</div>
                 )}
-                {!locked && (
-                  <UploadForm
-                    documentId={d.id}
-                    label={DOCUMENT_LABELS[d.type as DocumentType] ?? d.type}
-                  />
-                )}
+                {!locked && <UploadForm documentId={d.id} label={d.documentType.label} />}
               </div>
             );
           })}

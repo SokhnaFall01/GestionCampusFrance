@@ -16,7 +16,7 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
 
 export default async function AdminDashboard() {
   const candidates = await prisma.candidate.findMany({
-    include: { user: true, assessment: true, documents: true, tasks: true },
+    include: { user: true, assessment: true, documents: true, tasks: true, stage: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -83,7 +83,7 @@ export default async function AdminDashboard() {
                         <div className="text-xs text-muted">{c.user.email}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <StageBadge stage={c.stage} />
+                        <StageBadge label={c.stage?.label} />
                       </td>
                       <td className="px-4 py-3 text-muted">
                         {deposited} / {c.documents.length}

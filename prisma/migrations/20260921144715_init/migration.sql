@@ -9,6 +9,22 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
+CREATE TABLE "Stage" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "label" TEXT NOT NULL,
+    "order" INTEGER NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
+CREATE TABLE "DocumentType" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "label" TEXT NOT NULL,
+    "order" INTEGER NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
 CREATE TABLE "Candidate" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
@@ -18,11 +34,12 @@ CREATE TABLE "Candidate" (
     "dateOfBirth" DATETIME,
     "city" TEXT,
     "academicLevel" TEXT,
-    "stage" TEXT NOT NULL DEFAULT 'PREMIER_CONTACT',
+    "stageId" TEXT,
     "notes" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Candidate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Candidate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Candidate_stageId_fkey" FOREIGN KEY ("stageId") REFERENCES "Stage" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -62,7 +79,7 @@ CREATE TABLE "Assessment" (
 CREATE TABLE "Document" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "candidateId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
+    "documentTypeId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'A_FOURNIR',
     "fileName" TEXT,
     "storedName" TEXT,
@@ -71,7 +88,8 @@ CREATE TABLE "Document" (
     "reviewNote" TEXT,
     "uploadedAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Document_candidateId_fkey" FOREIGN KEY ("candidateId") REFERENCES "Candidate" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "Document_candidateId_fkey" FOREIGN KEY ("candidateId") REFERENCES "Candidate" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Document_documentTypeId_fkey" FOREIGN KEY ("documentTypeId") REFERENCES "DocumentType" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -108,4 +126,4 @@ CREATE UNIQUE INDEX "Candidate_userId_key" ON "Candidate"("userId");
 CREATE UNIQUE INDEX "Assessment_candidateId_key" ON "Assessment"("candidateId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Document_candidateId_type_key" ON "Document"("candidateId", "type");
+CREATE UNIQUE INDEX "Document_candidateId_documentTypeId_key" ON "Document"("candidateId", "documentTypeId");

@@ -22,6 +22,24 @@ model User {
   candidate    Candidate?
 }
 
+// Étape de la procédure (configurable par l'accompagnatrice).
+model Stage {
+  id         String      @id @default(cuid())
+  label      String
+  order      Int
+  createdAt  DateTime    @default(now())
+  candidates Candidate[]
+}
+
+// Type de document attendu (configurable par l'accompagnatrice).
+model DocumentType {
+  id        String     @id @default(cuid())
+  label     String
+  order     Int
+  createdAt DateTime   @default(now())
+  documents Document[]
+}
+
 // Fiche / dossier d'un étudiant accompagné.
 model Candidate {
   id            String   @id @default(cuid())
@@ -33,7 +51,8 @@ model Candidate {
   dateOfBirth   DateTime?
   city          String?
   academicLevel String?  // niveau d'études actuel (ex: Terminale, Licence 2...)
-  stage         String   @default("PREMIER_CONTACT") // voir lib/constants.ts
+  stage         Stage?   @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  stageId       String?
   notes         String?  // notes privées de l'accompagnateur
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -82,20 +101,21 @@ model Assessment {
 
 // Document du dossier : une ligne par pièce attendue (checklist).
 model Document {
-  id          String    @id @default(cuid())
-  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  candidateId String
-  type        String    // voir DOCUMENT_TYPES dans lib/constants.ts
-  status      String    @default("A_FOURNIR") // A_FOURNIR | DEPOSE | VALIDE | REFUSE
-  fileName    String?   // nom d'origine
-  storedName  String?   // nom stocké sur le disque / bucket
-  mimeType    String?
-  size        Int?
-  reviewNote  String?   // remarque de l'accompagnateur (ex: motif de refus)
-  uploadedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  id             String       @id @default(cuid())
+  candidate      Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId    String
+  documentType   DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
+  documentTypeId String
+  status         String       @default("A_FOURNIR") // A_FOURNIR | DEPOSE | VALIDE | REFUSE
+  fileName       String?      // nom d'origine
+  storedName     String?      // nom stocké sur le disque / bucket
+  mimeType       String?
+  size           Int?
+  reviewNote     String?      // remarque de l'accompagnateur (ex: motif de refus)
+  uploadedAt     DateTime?
+  createdAt      DateTime     @default(now())
 
-  @@unique([candidateId, type])
+  @@unique([candidateId, documentTypeId])
 }
 
 // Action à faire pour un candidat (to-do avec échéance).

@@ -1,62 +1,9 @@
 // Libellés et référentiels métier (en français) partagés dans toute l'app.
-
-// --- Étapes de la procédure Campus France ---
-export const STAGES = [
-  "PREMIER_CONTACT",
-  "CONSTITUTION_DOSSIER",
-  "EVALUATION",
-  "TEST_LANGUE",
-  "CHOIX_FORMATIONS",
-  "SOUMISSION_EEF",
-  "ENTRETIEN",
-  "REPONSES",
-  "VISA",
-  "DEPART",
-] as const;
-export type Stage = (typeof STAGES)[number];
-
-export const STAGE_LABELS: Record<Stage, string> = {
-  PREMIER_CONTACT: "Premier contact",
-  CONSTITUTION_DOSSIER: "Constitution du dossier",
-  EVALUATION: "Évaluation & probabilité",
-  TEST_LANGUE: "Test de langue (TCF/DELF)",
-  CHOIX_FORMATIONS: "Choix des formations",
-  SOUMISSION_EEF: "Soumission « Études en France »",
-  ENTRETIEN: "Entretien Campus France",
-  REPONSES: "Réponses des établissements",
-  VISA: "Demande de visa",
-  DEPART: "Départ",
-};
-
-// --- Documents attendus ---
-export const DOCUMENT_TYPES = [
-  "PIECE_IDENTITE",
-  "DIPLOME_BAC",
-  "RELEVES_BAC",
-  "RELEVES_POSTBAC",
-  "DIPLOMES_POSTBAC",
-  "CV",
-  "LETTRE_MOTIVATION",
-  "ATTESTATION_LANGUE",
-  "JUSTIF_FINANCIERS",
-  "PHOTO",
-  "ACTE_NAISSANCE",
-] as const;
-export type DocumentType = (typeof DOCUMENT_TYPES)[number];
-
-export const DOCUMENT_LABELS: Record<DocumentType, string> = {
-  PIECE_IDENTITE: "Pièce d'identité / Passeport",
-  DIPLOME_BAC: "Diplôme du Baccalauréat",
-  RELEVES_BAC: "Relevés de notes du Bac",
-  RELEVES_POSTBAC: "Relevés de notes post-Bac",
-  DIPLOMES_POSTBAC: "Diplômes / attestations post-Bac",
-  CV: "CV",
-  LETTRE_MOTIVATION: "Lettre de motivation",
-  ATTESTATION_LANGUE: "Attestation de langue (TCF/DELF)",
-  JUSTIF_FINANCIERS: "Justificatifs financiers",
-  PHOTO: "Photo d'identité",
-  ACTE_NAISSANCE: "Acte de naissance",
-};
+//
+// Les ÉTAPES et les TYPES DE DOCUMENTS ne sont plus figés ici : ils sont
+// stockés en base (tables Stage et DocumentType) et gérés par l'accompagnatrice
+// depuis la page « Paramètres ». Les valeurs par défaut sont créées par le seed
+// (prisma/seed.ts).
 
 export const DOCUMENT_STATUSES = ["A_FOURNIR", "DEPOSE", "VALIDE", "REFUSE"] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
