@@ -7,8 +7,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // URL de connexion applicative (pooler Supabase en production).
+  url       = env("DATABASE_URL")
+  // Connexion directe, utilisée pour les migrations / db push.
+  directUrl = env("DIRECT_URL")
 }
 
 // Compte de connexion (admin unique OU candidat).

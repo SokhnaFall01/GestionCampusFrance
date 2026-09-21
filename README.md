@@ -49,7 +49,8 @@ faciles à ajuster.
 ## 🧱 Stack technique
 - **Next.js 16** (App Router) + **React** + **TypeScript**
 - **Tailwind CSS**
-- **Prisma 6** + **SQLite** (dev) → **PostgreSQL** (production)
+- **Prisma 6** + **PostgreSQL** (Supabase)
+- **Supabase Storage** pour les fichiers déposés (disque local en dev)
 - Authentification par cookie de session signé (JWT via `jose`, mots de passe hachés avec `bcryptjs`)
 
 ## 🚀 Démarrage en local
@@ -60,10 +61,10 @@ npm install
 
 # 2. Créer le fichier .env (voir ci-dessous)
 
-# 3. Créer la base de données
-npx prisma migrate dev
+# 3. Créer / synchroniser la base de données
+npm run db:push
 
-# 4. Créer le compte administrateur
+# 4. Créer le compte administrateur + données par défaut
 npm run db:seed
 
 # 5. Lancer
@@ -73,37 +74,40 @@ npm run dev
 Ouvrir http://localhost:3000
 
 ### Fichier `.env`
-```
-DATABASE_URL="file:./dev.db"
-AUTH_SECRET="une-longue-chaine-aleatoire"   # générer avec: openssl rand -hex 32
-UPLOAD_DIR="./uploads"
-```
+Copier `.env.example` en `.env` et renseigner les valeurs (voir ce fichier pour
+le détail). Il faut au minimum `DATABASE_URL`, `DIRECT_URL` (PostgreSQL) et
+`AUTH_SECRET`.
 
 ### Compte administrateur par défaut
 - **Email** : `sokhnamaifall50@gmail.com`
-- **Mot de passe** : `Admin1234` ⚠️ *à changer* (voir ci-dessous)
+- **Mot de passe** : `Admin1234` ⚠️ *à changer* (définir `ADMIN_PASSWORD`)
 
 Pour définir vos propres identifiants au moment du seed :
 ```bash
 ADMIN_EMAIL="vous@exemple.com" ADMIN_PASSWORD="MotDePasseFort" npm run db:seed
 ```
 
-## 🌐 Mise en ligne (production)
+## 🌐 Mise en ligne (Vercel + Supabase)
 
-1. **Base de données PostgreSQL** (Neon, Supabase, Railway… offres gratuites) :
-   dans `prisma/schema.prisma`, remplacer `provider = "sqlite"` par
-   `provider = "postgresql"`, mettre l'URL Postgres dans `DATABASE_URL`, puis
-   `npx prisma migrate deploy` et `npm run db:seed`.
-2. **Variables d'environnement** : définir `AUTH_SECRET` (secret fort) et
-   `DATABASE_URL`.
-3. **Stockage des fichiers déposés** :
-   - Sur un serveur avec disque persistant (VPS, Railway, Render), le stockage
-     disque local (`UPLOAD_DIR`) suffit.
-   - Sur une plateforme *serverless* (Vercel), le disque n'est pas persistant :
-     il faudra brancher un stockage objet (Supabase Storage / S3) en adaptant
-     `lib/storage.ts`. C'est l'étape suivante prévue.
-4. Sur HTTP sans HTTPS (auto-hébergement), définir `AUTH_INSECURE_COOKIE=true`
-   pour autoriser le cookie de session. En HTTPS, ne pas définir cette variable.
+L'application est prête pour un déploiement **Vercel** (hébergement) +
+**Supabase** (base PostgreSQL + stockage des fichiers).
+
+1. **Supabase** : créer un projet. Récupérer :
+   - la **connection string** (pooler → `DATABASE_URL`, directe → `DIRECT_URL`) ;
+   - l'**URL du projet** et la **clé service_role** (Project Settings → API) pour
+     `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`.
+   Le bucket privé `documents` est créé automatiquement au premier envoi.
+2. **Vercel** : importer le dépôt GitHub, puis définir les variables
+   d'environnement (onglet *Settings → Environment Variables*) :
+   `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, et (recommandé) `ADMIN_EMAIL` + `ADMIN_PASSWORD`.
+3. Déployer. Le script de build lance automatiquement `prisma db push`
+   (création des tables) puis le seed (compte admin + étapes/documents par
+   défaut) avant de construire le site.
+
+> Le stockage bascule tout seul : si `SUPABASE_URL` et
+> `SUPABASE_SERVICE_ROLE_KEY` sont définis, les fichiers vont dans Supabase
+> Storage ; sinon ils sont écrits sur le disque local (`UPLOAD_DIR`).
 
 ## 📁 Structure
 ```

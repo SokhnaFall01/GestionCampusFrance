@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// Au moment du seed (build/déploiement), on privilégie la connexion directe
+// (DIRECT_URL) plutôt que le pooler, plus fiable pour les écritures.
+const seedUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+const prisma = new PrismaClient(
+  seedUrl ? { datasources: { db: { url: seedUrl } } } : undefined,
+);
 
 const DEFAULT_STAGES = [
   "Premier contact",
