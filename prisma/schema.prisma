@@ -1,0 +1,123 @@
+// Schéma de la base de données - Gestion des dossiers Campus France
+// Fournisseur SQLite en développement ; pour la mise en ligne, on remplacera
+// `provider = "sqlite"` par `provider = "postgresql"` (voir README).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Compte de connexion (admin unique OU candidat).
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  role         String     @default("CANDIDATE") // ADMIN | CANDIDATE
+  name         String
+  createdAt    DateTime   @default(now())
+  candidate    Candidate?
+}
+
+// Fiche / dossier d'un étudiant accompagné.
+model Candidate {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String   @unique
+  firstName     String
+  lastName      String
+  phone         String?
+  dateOfBirth   DateTime?
+  city          String?
+  academicLevel String?  // niveau d'études actuel (ex: Terminale, Licence 2...)
+  stage         String   @default("PREMIER_CONTACT") // voir lib/constants.ts
+  notes         String?  // notes privées de l'accompagnateur
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  documents   Document[]
+  tasks       Task[]
+  timeline    TimelineEvent[]
+  studyWishes StudyWish[]
+  assessment  Assessment?
+}
+
+// Un vœu / projet d'études saisi par le candidat ("ce qu'il veut suivre").
+model StudyWish {
+  id            String    @id @default(cuid())
+  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId   String
+  fieldOfStudy  String    // domaine (ex: Informatique, Droit...)
+  formationName String    // intitulé de la formation
+  establishment String?   // établissement visé
+  level         String?   // Licence, Master, BTS, Doctorat...
+  city          String?
+  selectivity   String?   // FAIBLE | MOYENNE | ELEVEE | TRES_ELEVEE
+  motivation    String?   // pourquoi ce choix
+  createdAt     DateTime  @default(now())
+}
+
+// Évaluation menant à la probabilité d'admission + décision de l'accompagnateur.
+model Assessment {
+  id              String    @id @default(cuid())
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId     String    @unique
+
+  bacAverage      Float?    // moyenne /20
+  bacMention      String?   // Passable | AssezBien | Bien | TresBien
+  postBacAverage  Float?    // moyenne post-bac /20 (optionnel)
+  frenchLevel     String?   // A1 | A2 | B1 | B2 | C1 | C2
+  coherenceRating Int?      // cohérence parcours <-> formation, 0-100
+  selectivityLevel String?  // FAIBLE | MOYENNE | ELEVEE | TRES_ELEVEE
+
+  score            Int?     // score calculé 0-100
+  probabilityLevel String?  // ELEVEE | MOYENNE | FAIBLE
+  decision         String   @default("EN_ATTENTE") // EN_ATTENTE | ACCEPTE | REFUSE
+  comment          String?
+  updatedAt        DateTime @updatedAt
+}
+
+// Document du dossier : une ligne par pièce attendue (checklist).
+model Document {
+  id          String    @id @default(cuid())
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId String
+  type        String    // voir DOCUMENT_TYPES dans lib/constants.ts
+  status      String    @default("A_FOURNIR") // A_FOURNIR | DEPOSE | VALIDE | REFUSE
+  fileName    String?   // nom d'origine
+  storedName  String?   // nom stocké sur le disque / bucket
+  mimeType    String?
+  size        Int?
+  reviewNote  String?   // remarque de l'accompagnateur (ex: motif de refus)
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([candidateId, type])
+}
+
+// Action à faire pour un candidat (to-do avec échéance).
+model Task {
+  id          String    @id @default(cuid())
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId String
+  title       String
+  description String?
+  dueDate     DateTime?
+  done        Boolean   @default(false)
+  doneAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+// Journal de suivi (historique des évènements du dossier).
+model TimelineEvent {
+  id          String    @id @default(cuid())
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidateId String
+  type        String    // STAGE | DOCUMENT | TASK | ASSESSMENT | DECISION | NOTE | SYSTEM
+  message     String
+  author      String    @default("SYSTEM") // ADMIN | CANDIDATE | SYSTEM
+  createdAt   DateTime  @default(now())
+}
