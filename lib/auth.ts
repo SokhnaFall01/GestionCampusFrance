@@ -21,17 +21,17 @@ export interface SessionPayload {
 }
 
 // Options du cookie de session (partagées entre la route /api/login et ailleurs).
+// NB : PAS de maxAge. Un cookie long AVEC maxAge n'était pas transmis lors des
+// actions serveur (POST) sur cet hébergement, alors qu'un cookie de session
+// (sans maxAge) l'est. La validité reste limitée par l'expiration du jeton JWT.
 export function sessionCookieOptions() {
   const insecure = process.env.AUTH_INSECURE_COOKIE === "true";
   const secure = process.env.NODE_ENV === "production" && !insecure;
   return {
     httpOnly: true,
-    // SameSite=Lax + Secure : réglage identique aux cookies de test qui sont
-    // bien transmis lors des envois de formulaires (actions serveur).
     secure,
     sameSite: "lax" as const,
     path: "/",
-    maxAge: MAX_AGE,
   };
 }
 

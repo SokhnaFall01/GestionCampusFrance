@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { logEvent } from "@/lib/events";
 import { computeProbability } from "@/lib/scoring";
@@ -40,22 +39,7 @@ export interface CreateState {
 }
 
 export async function createStudent(_prev: CreateState, formData: FormData): Promise<CreateState> {
-  // DIAGNOSTIC : au lieu de rediriger (ce qui renvoie au login sans explication),
-  // on affiche si la session est vue dans l'action serveur.
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    const h = await headers();
-    const cookieHeader = h.get("cookie") || "";
-    const names = cookieHeader
-      .split(";")
-      .map((c) => c.split("=")[0].trim())
-      .filter(Boolean);
-    return {
-      error: `DIAG → cookies=[${names.join(", ") || "AUCUN"}] · host=${h.get(
-        "host",
-      )} · origin=${h.get("origin") || "?"}`,
-    };
-  }
+  await requireAdmin();
 
   const count = await prisma.candidate.count();
   if (count >= MAX_CANDIDATES) {
