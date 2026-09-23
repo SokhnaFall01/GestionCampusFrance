@@ -22,12 +22,15 @@ export interface SessionPayload {
 
 // Options du cookie de session (partagées entre la route /api/login et ailleurs).
 export function sessionCookieOptions() {
+  const insecure = process.env.AUTH_INSECURE_COOKIE === "true";
+  const secure = process.env.NODE_ENV === "production" && !insecure;
   return {
     httpOnly: true,
-    // Cookie sécurisé en production (HTTPS). Pour un auto-hébergement en HTTP,
-    // définir AUTH_INSECURE_COOKIE=true afin d'autoriser le cookie sur http.
-    secure: process.env.NODE_ENV === "production" && process.env.AUTH_INSECURE_COOKIE !== "true",
-    sameSite: "lax" as const,
+    // En production (HTTPS) : SameSite=None + Secure, pour que le cookie soit
+    // aussi transmis lors des envois de formulaires (actions serveur), que le
+    // navigateur peut classer « cross-site ». En dev/HTTP : Lax.
+    secure,
+    sameSite: (secure ? "none" : "lax") as "none" | "lax",
     path: "/",
     maxAge: MAX_AGE,
   };
