@@ -73,11 +73,17 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
   const password = providedPassword || generateTempPassword();
   const passwordHash = await hashPassword(password);
 
-  const candidate = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
+  // Écritures séquentielles (pas de transaction interactive : celles-ci ne sont
+  // pas fiables via le pooler Supabase en production). En cas d'échec après la
+  // création du compte, on nettoie le compte orphelin.
+  let createdUserId: string | null = null;
+  try {
+    const user = await prisma.user.create({
       data: { email, name: `${firstName} ${lastName}`, role: "CANDIDATE", passwordHash },
     });
-    const cand = await tx.candidate.create({
+    createdUserId = user.id;
+
+    const candidate = await prisma.candidate.create({
       data: {
         userId: user.id,
         firstName,
@@ -89,18 +95,25 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
         stageId: firstStage?.id ?? null,
       },
     });
+
     if (docTypes.length > 0) {
-      await tx.document.createMany({
-        data: docTypes.map((dt) => ({ candidateId: cand.id, documentTypeId: dt.id })),
+      await prisma.document.createMany({
+        data: docTypes.map((dt) => ({ candidateId: candidate.id, documentTypeId: dt.id })),
       });
     }
-    return cand;
-  });
 
-  await logEvent(candidate.id, "SYSTEM", "Dossier créé", "ADMIN");
-  revalidatePath("/admin");
+    await logEvent(candidate.id, "SYSTEM", "Dossier créé", "ADMIN");
+    revalidatePath("/admin");
 
-  return { success: { candidateId: candidate.id, email, password } };
+    return { success: { candidateId: candidate.id, email, password } };
+  } catch (e) {
+    if (createdUserId) {
+      await prisma.user.delete({ where: { id: createdUserId } }).catch(() => {});
+    }
+    return {
+      error: `Erreur lors de la création : ${e instanceof Error ? e.message : "inconnue"}`,
+    };
+  }
 }
 
 // --- Étape du dossier --------------------------------------------------------
