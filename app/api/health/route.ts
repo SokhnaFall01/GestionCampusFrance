@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Exécutée à la demande uniquement (jamais pendant le build).
+export const dynamic = "force-dynamic";
+
 // Route de diagnostic : vérifie la connexion à la base de données et indique
 // si les données de base (compte admin, étapes, documents) sont présentes.
 // Utile pour diagnostiquer un déploiement. N'expose aucune donnée sensible.

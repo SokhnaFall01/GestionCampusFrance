@@ -4,6 +4,9 @@ import { getSession } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { DEFAULT_STAGES, DEFAULT_DOCUMENTS } from "@/lib/defaults";
 
+// Exécutée à la demande uniquement (jamais pendant le build).
+export const dynamic = "force-dynamic";
+
 // Initialise la base depuis le navigateur (compte admin + étapes + documents),
 // indépendamment du build. Sécurité :
 // - si aucun admin n'existe encore : accès libre (amorçage d'une base neuve) ;
