@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./prisma";
 
-export const SESSION_COOKIE = "gcf_session";
+export const SESSION_COOKIE = "gcf_auth";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
 
 function secretKey(): Uint8Array {
