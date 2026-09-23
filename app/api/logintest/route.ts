@@ -36,5 +36,15 @@ export async function GET(request: Request) {
     sameSite: "lax",
     path: "/",
   });
+  // - valeur LONGUE AVEC maxAge (comme gcf_auth)
+  res.cookies.set("probe_long_maxage", "z".repeat(320), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 604800,
+  });
+  // - la valeur JWT EXACTE, avec les options du cookie de session
+  res.cookies.set("probe_jwtval", token, sessionCookieOptions());
   return res;
 }
