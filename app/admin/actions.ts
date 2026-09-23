@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getSession } from "@/lib/auth";
 import { hashPassword, generateTempPassword } from "@/lib/password";
@@ -43,10 +44,16 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
   // on affiche si la session est vue dans l'action serveur.
   const session = await getSession();
   if (!session || session.role !== "ADMIN") {
+    const h = await headers();
+    const cookieHeader = h.get("cookie") || "";
+    const names = cookieHeader
+      .split(";")
+      .map((c) => c.split("=")[0].trim())
+      .filter(Boolean);
     return {
-      error: `Session non reconnue dans l'action serveur (sessionVue=${Boolean(
+      error: `DIAG action serveur → cookies reçus = [${names.join(", ") || "AUCUN"}] · sessionVue=${Boolean(
         session,
-      )}, rôle=${session?.role ?? "aucun"}). Cause du problème identifiée.`,
+      )}`,
     };
   }
 
