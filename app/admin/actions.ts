@@ -51,9 +51,9 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
       .map((c) => c.split("=")[0].trim())
       .filter(Boolean);
     return {
-      error: `DIAG action serveur → cookies reçus = [${names.join(", ") || "AUCUN"}] · sessionVue=${Boolean(
-        session,
-      )}`,
+      error: `DIAG → cookies=[${names.join(", ") || "AUCUN"}] · host=${h.get(
+        "host",
+      )} · origin=${h.get("origin") || "?"}`,
     };
   }
 
