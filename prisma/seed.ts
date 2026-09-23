@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { DEFAULT_STAGES, DEFAULT_DOCUMENTS } from "../lib/defaults";
 
 // Au moment du seed (build/déploiement), on privilégie la connexion directe
 // (DIRECT_URL) plutôt que le pooler, plus fiable pour les écritures.
@@ -7,33 +8,6 @@ const seedUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
 const prisma = new PrismaClient(
   seedUrl ? { datasources: { db: { url: seedUrl } } } : undefined,
 );
-
-const DEFAULT_STAGES = [
-  "Premier contact",
-  "Constitution du dossier",
-  "Évaluation & probabilité",
-  "Test de langue (TCF/DELF)",
-  "Choix des formations",
-  "Soumission « Études en France »",
-  "Entretien Campus France",
-  "Réponses des établissements",
-  "Demande de visa",
-  "Départ",
-];
-
-const DEFAULT_DOCUMENTS = [
-  "Pièce d'identité / Passeport",
-  "Diplôme du Baccalauréat",
-  "Relevés de notes du Bac",
-  "Relevés de notes post-Bac",
-  "Diplômes / attestations post-Bac",
-  "CV",
-  "Lettre de motivation",
-  "Attestation de langue (TCF/DELF)",
-  "Justificatifs financiers",
-  "Photo d'identité",
-  "Acte de naissance",
-];
 
 async function main() {
   // --- Compte administrateur ---

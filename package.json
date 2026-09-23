@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && (prisma db push --skip-generate || echo \"[build] db push ignoré\") && (tsx prisma/seed.ts || echo \"[build] seed ignoré\") && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
