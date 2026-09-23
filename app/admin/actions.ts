@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getSession } from "@/lib/auth";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { logEvent } from "@/lib/events";
 import { computeProbability } from "@/lib/scoring";
@@ -39,7 +39,16 @@ export interface CreateState {
 }
 
 export async function createStudent(_prev: CreateState, formData: FormData): Promise<CreateState> {
-  await requireAdmin();
+  // DIAGNOSTIC : au lieu de rediriger (ce qui renvoie au login sans explication),
+  // on affiche si la session est vue dans l'action serveur.
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    return {
+      error: `Session non reconnue dans l'action serveur (sessionVue=${Boolean(
+        session,
+      )}, rôle=${session?.role ?? "aucun"}). Cause du problème identifiée.`,
+    };
+  }
 
   const count = await prisma.candidate.count();
   if (count >= MAX_CANDIDATES) {
