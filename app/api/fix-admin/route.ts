@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
+import { createSessionToken, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 
 // OUTIL TEMPORAIRE DE DÉPANNAGE — à supprimer après diagnostic.
-// Réinitialise le compte administrateur avec un mot de passe connu, pour
-// vérifier si le problème vient du mot de passe ou de la session.
-// Protégé par une clé simple dans l'URL (?key=...).
+// Réinitialise le mot de passe admin ET connecte directement (pose le cookie
+// de session sur la réponse, puis redirige vers le tableau de bord).
 export const dynamic = "force-dynamic";
 
 const TEMP_KEY = "repare-2026";
@@ -25,12 +25,17 @@ export async function GET(request: Request) {
       update: { role: "ADMIN", passwordHash },
       create: { email, name: "Accompagnatrice", role: "ADMIN", passwordHash },
     });
-    return NextResponse.json({
-      ok: true,
+
+    // Connecte directement : pose le cookie de session sur la redirection.
+    const token = await createSessionToken({
+      sub: admin.id,
+      role: "ADMIN",
+      name: admin.name,
       email: admin.email,
-      motDePasse: KNOWN_PASSWORD,
-      message: "Mot de passe admin réinitialisé. Connecte-toi avec ces identifiants.",
     });
+    const res = NextResponse.redirect(new URL("/admin", request.url), 303);
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+    return res;
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
