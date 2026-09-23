@@ -2,21 +2,20 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
-// Test d'écriture en base (réservé à un admin connecté) : reproduit la création
-// d'un étudiant étape par étape, puis nettoie. Affiche l'erreur exacte si une
-// écriture échoue. À utiliser pour diagnostiquer, puis à retirer.
+// Diagnostic temporaire : indique si la session est vue côté serveur ET teste
+// l'écriture en base (création compte → fiche → documents), puis nettoie.
+// À retirer une fois le problème résolu.
 export const dynamic = "force-dynamic";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function GET() {
   const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json(
-      { ok: false, error: "Réservé à un administrateur connecté." },
-      { status: 403 },
-    );
-  }
+  const sessionInfo = {
+    sessionSeen: Boolean(session),
+    role: session?.role ?? null,
+    email: session?.email ?? null,
+  };
 
   const steps: Array<{ step: string; ok: boolean; info?: string }> = [];
   const email = `selftest_${Date.now()}@example.invalid`;
@@ -30,7 +29,7 @@ export async function GET() {
     userId = u.id;
     steps.push({ step: "1. création compte (user)", ok: true });
   } catch (e) {
-    return NextResponse.json({ ok: false, failedAt: "création compte", error: msg(e), steps });
+    return NextResponse.json({ ok: false, ...sessionInfo, failedAt: "création compte", error: msg(e), steps });
   }
 
   try {
@@ -42,7 +41,7 @@ export async function GET() {
     steps.push({ step: "2. création fiche (candidate)", ok: true });
   } catch (e) {
     if (userId) await prisma.user.delete({ where: { id: userId } }).catch(() => {});
-    return NextResponse.json({ ok: false, failedAt: "création fiche", error: msg(e), steps });
+    return NextResponse.json({ ok: false, ...sessionInfo, failedAt: "création fiche", error: msg(e), steps });
   }
 
   try {
@@ -55,14 +54,14 @@ export async function GET() {
     steps.push({ step: "3. création documents", ok: true, info: `${dts.length} documents` });
   } catch (e) {
     if (userId) await prisma.user.delete({ where: { id: userId } }).catch(() => {});
-    return NextResponse.json({ ok: false, failedAt: "création documents", error: msg(e), steps });
+    return NextResponse.json({ ok: false, ...sessionInfo, failedAt: "création documents", error: msg(e), steps });
   }
 
-  // Nettoyage (cascade sur candidate + documents).
   await prisma.user.delete({ where: { id: userId! } }).catch(() => {});
 
   return NextResponse.json({
     ok: true,
+    ...sessionInfo,
     steps,
     message: "Écriture en base OK (données de test supprimées).",
   });
