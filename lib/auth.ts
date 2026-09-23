@@ -26,11 +26,10 @@ export function sessionCookieOptions() {
   const secure = process.env.NODE_ENV === "production" && !insecure;
   return {
     httpOnly: true,
-    // En production (HTTPS) : SameSite=None + Secure, pour que le cookie soit
-    // aussi transmis lors des envois de formulaires (actions serveur), que le
-    // navigateur peut classer « cross-site ». En dev/HTTP : Lax.
+    // SameSite=Lax + Secure : réglage identique aux cookies de test qui sont
+    // bien transmis lors des envois de formulaires (actions serveur).
     secure,
-    sameSite: (secure ? "none" : "lax") as "none" | "lax",
+    sameSite: "lax" as const,
     path: "/",
     maxAge: MAX_AGE,
   };
