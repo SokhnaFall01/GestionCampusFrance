@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { requireCandidate } from "@/lib/auth";
 
+// Toujours vérifier la session à chaque requête (jamais de version en cache).
+export const dynamic = "force-dynamic";
+
 export default async function CandidatLayout({ children }: { children: React.ReactNode }) {
   const { session } = await requireCandidate();
 
