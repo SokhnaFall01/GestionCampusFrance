@@ -1,12 +1,9 @@
-"use client";
-
-import { useActionState } from "react";
-import { loginAction, LoginState } from "./actions";
-
-const initial: LoginState = {};
-
-export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(loginAction, initial);
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-10">
@@ -16,12 +13,12 @@ export default function LoginPage() {
           <p className="text-muted mt-1 text-sm">Gestion et suivi des dossiers étudiants</p>
         </div>
 
-        <form action={formAction} className="card p-6 space-y-4">
+        <form action="/api/login" method="post" className="card p-6 space-y-4">
           <h1 className="text-lg font-semibold">Connexion</h1>
 
-          {state.error && (
+          {error && (
             <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2 ring-1 ring-red-200">
-              {state.error}
+              Email ou mot de passe incorrect.
             </div>
           )}
 
@@ -54,8 +51,8 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary w-full" disabled={pending}>
-            {pending ? "Connexion…" : "Se connecter"}
+          <button type="submit" className="btn btn-primary w-full">
+            Se connecter
           </button>
         </form>
 

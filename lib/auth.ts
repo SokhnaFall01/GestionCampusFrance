@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./prisma";
 
-const COOKIE_NAME = "gcf_session";
+export const SESSION_COOKIE = "gcf_session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
 
 function secretKey(): Uint8Array {
@@ -20,34 +20,43 @@ export interface SessionPayload {
   email: string;
 }
 
-export async function createSession(payload: SessionPayload): Promise<void> {
-  const token = await new SignJWT({ role: payload.role, name: payload.name, email: payload.email })
+// Options du cookie de session (partagées entre la route /api/login et ailleurs).
+export function sessionCookieOptions() {
+  return {
+    httpOnly: true,
+    // Cookie sécurisé en production (HTTPS). Pour un auto-hébergement en HTTP,
+    // définir AUTH_INSECURE_COOKIE=true afin d'autoriser le cookie sur http.
+    secure: process.env.NODE_ENV === "production" && process.env.AUTH_INSECURE_COOKIE !== "true",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: MAX_AGE,
+  };
+}
+
+// Génère le jeton de session signé (JWT).
+export async function createSessionToken(payload: SessionPayload): Promise<string> {
+  return new SignJWT({ role: payload.role, name: payload.name, email: payload.email })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE}s`)
     .sign(secretKey());
+}
 
+export async function createSession(payload: SessionPayload): Promise<void> {
+  const token = await createSessionToken(payload);
   const store = await cookies();
-  store.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    // Cookie sécurisé en production (HTTPS). Pour un auto-hébergement en HTTP,
-    // définir AUTH_INSECURE_COOKIE=true afin d'autoriser le cookie sur http.
-    secure: process.env.NODE_ENV === "production" && process.env.AUTH_INSECURE_COOKIE !== "true",
-    sameSite: "lax",
-    path: "/",
-    maxAge: MAX_AGE,
-  });
+  store.set(SESSION_COOKIE, token, sessionCookieOptions());
 }
 
 export async function destroySession(): Promise<void> {
   const store = await cookies();
-  store.delete(COOKIE_NAME);
+  store.delete(SESSION_COOKIE);
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
+  const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey());
