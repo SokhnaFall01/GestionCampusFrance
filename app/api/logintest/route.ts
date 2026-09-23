@@ -19,5 +19,22 @@ export async function GET(request: Request) {
   });
   const res = NextResponse.redirect(new URL("/api/whoami", request.url), 303);
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+
+  // Sondes de diagnostic (Lax + secure + httpOnly, comme gcf_session) :
+  // - valeur courte AVEC maxAge
+  res.cookies.set("probe_short_maxage", "x", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 604800,
+  });
+  // - valeur LONGUE SANS maxAge
+  res.cookies.set("probe_long_nomaxage", "y".repeat(320), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+  });
   return res;
 }
