@@ -51,8 +51,14 @@ export interface CreateState {
 }
 
 export async function createStudent(_prev: CreateState, formData: FormData): Promise<CreateState> {
-  if (!(await adminFromForm(formData))) {
-    return { error: "Session expirée. Reconnectez-vous puis réessayez." };
+  {
+    const rawSid = str(formData.get("_sid"));
+    const s = await getSessionFromId(rawSid);
+    if (!s || s.role !== "ADMIN") {
+      return {
+        error: `DIAG création → _sid(longueur=${rawSid.length}) · session=${s ? s.role : "introuvable"}`,
+      };
+    }
   }
 
   const count = await prisma.candidate.count();
