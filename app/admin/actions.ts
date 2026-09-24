@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { getSessionFromId, type SessionPayload } from "@/lib/auth";
+import { getSession, getSessionFromId, type SessionPayload } from "@/lib/auth";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { logEvent } from "@/lib/events";
 import { computeProbability } from "@/lib/scoring";
@@ -31,7 +32,9 @@ function str(v: FormDataEntryValue | null): string {
 // formulaire (champ caché "_sid"). Le cookie n'étant pas toujours transmis lors
 // des envois de formulaires sur cet hébergement, on s'appuie sur ce champ.
 async function adminFromForm(formData: FormData): Promise<SessionPayload | null> {
-  const s = await getSessionFromId(str(formData.get("_sid")));
+  // 1) cookie (fonctionne sur un vrai serveur) ; 2) sinon jeton du formulaire.
+  let s = await getSession();
+  if (!s) s = await getSessionFromId(str(formData.get("_sid")));
   return s && s.role === "ADMIN" ? s : null;
 }
 
@@ -52,7 +55,17 @@ export interface CreateState {
 
 export async function createStudent(_prev: CreateState, formData: FormData): Promise<CreateState> {
   if (!(await adminFromForm(formData))) {
-    return { error: "Session expirée. Reconnectez-vous puis réessayez." };
+    const h = await headers();
+    const cookieNames = (h.get("cookie") || "")
+      .split(";")
+      .map((c) => c.split("=")[0].trim())
+      .filter(Boolean);
+    const rawSid = str(formData.get("_sid"));
+    const viaCookie = await getSession();
+    const viaForm = await getSessionFromId(rawSid);
+    return {
+      error: `DIAG → cookies=[${cookieNames.join(",") || "AUCUN"}] · _sid.len=${rawSid.length} · cookie=${viaCookie ? viaCookie.role : "non"} · form=${viaForm ? viaForm.role : "non"}`,
+    };
   }
 
   const count = await prisma.candidate.count();

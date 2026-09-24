@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getSessionFromId } from "@/lib/auth";
+import { getSession, getSessionFromId } from "@/lib/auth";
 import { saveUpload, deleteUpload } from "@/lib/storage";
 import { logEvent } from "@/lib/events";
 
@@ -10,10 +10,10 @@ function str(v: FormDataEntryValue | null): string {
   return String(v ?? "").trim();
 }
 
-// Récupère la fiche du candidat via l'id de session transmis dans le formulaire
-// (champ caché "_sid"), le cookie n'étant pas toujours transmis lors des envois.
+// Récupère la fiche du candidat : cookie d'abord, sinon jeton du formulaire.
 async function candidateFromForm(formData: FormData) {
-  const s = await getSessionFromId(str(formData.get("_sid")));
+  let s = await getSession();
+  if (!s) s = await getSessionFromId(str(formData.get("_sid")));
   if (!s || s.role !== "CANDIDATE") return null;
   return prisma.candidate.findUnique({ where: { userId: s.sub } });
 }
