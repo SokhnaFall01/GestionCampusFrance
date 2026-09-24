@@ -48,3 +48,5 @@ next-env.d.ts
 
 # ne pas ignorer le modele d exemple
 !.env.example
+
+!.env.docker.example

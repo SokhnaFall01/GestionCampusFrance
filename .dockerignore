@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+uploads
+*.db
+prisma/dev.db
+.env
+.env.*
+!.env.docker.example
+npm-debug.log*
