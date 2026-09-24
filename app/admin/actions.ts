@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, getSession } from "@/lib/auth";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { logEvent } from "@/lib/events";
 import { computeProbability } from "@/lib/scoring";
@@ -39,7 +40,17 @@ export interface CreateState {
 }
 
 export async function createStudent(_prev: CreateState, formData: FormData): Promise<CreateState> {
-  await requireAdmin();
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    const h = await headers();
+    const names = (h.get("cookie") || "")
+      .split(";")
+      .map((c) => c.split("=")[0].trim())
+      .filter(Boolean);
+    return {
+      error: `Session non transmise (cookies reçus : [${names.join(", ") || "AUCUN"}]). Reconnectez-vous puis réessayez.`,
+    };
+  }
 
   const count = await prisma.candidate.count();
   if (count >= MAX_CANDIDATES) {
