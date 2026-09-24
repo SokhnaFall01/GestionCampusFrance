@@ -5,7 +5,7 @@ import { addStudyWish, WishState } from "@/app/candidat/actions";
 
 const initial: WishState = {};
 
-export function WishForm() {
+export function WishForm({ sid }: { sid: string }) {
   const [state, formAction, pending] = useActionState(addStudyWish, initial);
   const ref = useRef<HTMLFormElement>(null);
 
@@ -15,6 +15,7 @@ export function WishForm() {
 
   return (
     <form ref={ref} action={formAction} className="space-y-3">
+      <input type="hidden" name="_sid" value={sid} />
       {state.error && (
         <div className="rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2 ring-1 ring-red-200">
           {state.error}

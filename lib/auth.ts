@@ -64,23 +64,32 @@ export async function destroySession(): Promise<void> {
   store.delete(SESSION_COOKIE);
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
+// Récupère l'id de session brut (valeur du cookie) — utile pour l'injecter
+// dans les formulaires (champ caché), car le cookie n'est pas toujours transmis
+// lors des envois de formulaires sur certains hébergements.
+export async function getSessionId(): Promise<string | null> {
   const store = await cookies();
-  const sid = store.get(SESSION_COOKIE)?.value;
-  if (!sid) return null;
+  return store.get(SESSION_COOKIE)?.value ?? null;
+}
 
+// Résout une session à partir de son id (cookie OU champ de formulaire).
+export async function getSessionFromId(sid: string | null | undefined): Promise<SessionPayload | null> {
+  if (!sid) return null;
   const session = await prisma.session.findUnique({
     where: { id: sid },
     include: { user: true },
   });
   if (!session || session.expiresAt < new Date()) return null;
-
   return {
     sub: session.user.id,
     role: session.user.role as "ADMIN" | "CANDIDATE",
     name: session.user.name,
     email: session.user.email,
   };
+}
+
+export async function getSession(): Promise<SessionPayload | null> {
+  return getSessionFromId(await getSessionId());
 }
 
 // Renvoie l'admin connecté, ou redirige vers /login.

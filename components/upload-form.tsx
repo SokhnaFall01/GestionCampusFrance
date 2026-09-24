@@ -5,11 +5,20 @@ import { uploadDocument, UploadState } from "@/app/candidat/actions";
 
 const initial: UploadState = {};
 
-export function UploadForm({ documentId, label }: { documentId: string; label: string }) {
+export function UploadForm({
+  documentId,
+  label,
+  sid,
+}: {
+  documentId: string;
+  label: string;
+  sid: string;
+}) {
   const [state, formAction, pending] = useActionState(uploadDocument, initial);
 
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2 mt-2">
+      <input type="hidden" name="_sid" value={sid} />
       <input type="hidden" name="documentId" value={documentId} />
       <input
         type="file"

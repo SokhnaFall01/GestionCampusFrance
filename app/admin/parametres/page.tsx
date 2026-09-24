@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getSessionId } from "@/lib/auth";
 import {
   addStage,
   renameStage,
@@ -8,6 +9,8 @@ import {
   renameDocumentType,
   deleteDocumentType,
 } from "../actions";
+
+export const dynamic = "force-dynamic";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -26,6 +29,7 @@ export default async function ParametresPage() {
   ]);
 
   const stageUsage = new Map(usageByStage.map((u) => [u.stageId, u._count]));
+  const sid = (await getSessionId()) ?? "";
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -48,11 +52,13 @@ export default async function ParametresPage() {
               <div key={s.id} className="flex items-center gap-2">
                 <form action={renameStage} className="flex items-center gap-2 flex-1">
                   <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="_sid" value={sid} />
                   <input name="label" defaultValue={s.label} className="input flex-1" />
                   <button className="btn btn-outline py-1.5 px-3 text-sm">Renommer</button>
                 </form>
                 <form action={deleteStage}>
                   <input type="hidden" name="id" value={s.id} />
+                  <input type="hidden" name="_sid" value={sid} />
                   <button
                     className="text-sm text-muted hover:text-red-600 px-2"
                     title={used > 0 ? `${used} étudiant(s) à cette étape` : "Supprimer"}
@@ -67,6 +73,7 @@ export default async function ParametresPage() {
         </div>
 
         <form action={addStage} className="flex items-end gap-2 border-t border-border pt-4">
+          <input type="hidden" name="_sid" value={sid} />
           <div className="flex-1">
             <label className="label">Ajouter une étape</label>
             <input name="label" className="input" placeholder="Nom de la nouvelle étape" required />
@@ -86,11 +93,13 @@ export default async function ParametresPage() {
             <div key={d.id} className="flex items-center gap-2">
               <form action={renameDocumentType} className="flex items-center gap-2 flex-1">
                 <input type="hidden" name="id" value={d.id} />
+                <input type="hidden" name="_sid" value={sid} />
                 <input name="label" defaultValue={d.label} className="input flex-1" />
                 <button className="btn btn-outline py-1.5 px-3 text-sm">Renommer</button>
               </form>
               <form action={deleteDocumentType}>
                 <input type="hidden" name="id" value={d.id} />
+                <input type="hidden" name="_sid" value={sid} />
                 <button className="text-sm text-muted hover:text-red-600 px-2">Supprimer</button>
               </form>
             </div>
@@ -102,6 +111,7 @@ export default async function ParametresPage() {
           action={addDocumentType}
           className="flex items-end gap-2 border-t border-border pt-4"
         >
+          <input type="hidden" name="_sid" value={sid} />
           <div className="flex-1">
             <label className="label">Ajouter un document</label>
             <input

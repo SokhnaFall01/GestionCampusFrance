@@ -2,12 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireCandidate } from "@/lib/auth";
+import { getSessionFromId } from "@/lib/auth";
 import { saveUpload, deleteUpload } from "@/lib/storage";
 import { logEvent } from "@/lib/events";
 
 function str(v: FormDataEntryValue | null): string {
   return String(v ?? "").trim();
+}
+
+// Récupère la fiche du candidat via l'id de session transmis dans le formulaire
+// (champ caché "_sid"), le cookie n'étant pas toujours transmis lors des envois.
+async function candidateFromForm(formData: FormData) {
+  const s = await getSessionFromId(str(formData.get("_sid")));
+  if (!s || s.role !== "CANDIDATE") return null;
+  return prisma.candidate.findUnique({ where: { userId: s.sub } });
 }
 
 function refresh(candidateId: string) {
@@ -23,7 +31,8 @@ export interface UploadState {
 
 // Dépôt d'un fichier par le candidat sur une pièce attendue.
 export async function uploadDocument(_prev: UploadState, formData: FormData): Promise<UploadState> {
-  const { candidate } = await requireCandidate();
+  const candidate = await candidateFromForm(formData);
+  if (!candidate) return { error: "Session expirée. Reconnectez-vous puis réessayez." };
   const documentId = str(formData.get("documentId"));
   const file = formData.get("file");
 
@@ -76,7 +85,8 @@ export interface WishState {
 }
 
 export async function addStudyWish(_prev: WishState, formData: FormData): Promise<WishState> {
-  const { candidate } = await requireCandidate();
+  const candidate = await candidateFromForm(formData);
+  if (!candidate) return { error: "Session expirée. Reconnectez-vous puis réessayez." };
   const fieldOfStudy = str(formData.get("fieldOfStudy"));
   const formationName = str(formData.get("formationName"));
   const establishment = str(formData.get("establishment")) || null;
@@ -97,7 +107,8 @@ export async function addStudyWish(_prev: WishState, formData: FormData): Promis
 }
 
 export async function deleteStudyWish(formData: FormData) {
-  const { candidate } = await requireCandidate();
+  const candidate = await candidateFromForm(formData);
+  if (!candidate) return;
   const wishId = str(formData.get("wishId"));
   const wish = await prisma.studyWish.findUnique({ where: { id: wishId } });
   if (wish && wish.candidateId === candidate.id) {

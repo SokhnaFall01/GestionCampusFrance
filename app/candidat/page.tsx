@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { requireCandidate } from "@/lib/auth";
+import { requireCandidate, getSessionId } from "@/lib/auth";
 import { StageBadge, DocStatusBadge } from "@/components/badges";
 import { UploadForm } from "@/components/upload-form";
 import { WishForm } from "@/components/wish-form";
 import { deleteStudyWish } from "./actions";
+
+export const dynamic = "force-dynamic";
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return "—";
@@ -21,6 +23,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default async function CandidatDashboard() {
   const { candidate } = await requireCandidate();
+  const sid = (await getSessionId()) ?? "";
   const c = await prisma.candidate.findUnique({
     where: { id: candidate.id },
     include: {
@@ -83,7 +86,7 @@ export default async function CandidatDashboard() {
                 {d.status === "REFUSE" && d.reviewNote && (
                   <div className="text-xs text-red-600 mt-1">Motif : {d.reviewNote}</div>
                 )}
-                {!locked && <UploadForm documentId={d.id} label={d.documentType.label} />}
+                {!locked && <UploadForm documentId={d.id} label={d.documentType.label} sid={sid} />}
               </div>
             );
           })}
@@ -135,13 +138,14 @@ export default async function CandidatDashboard() {
                 </div>
                 <form action={deleteStudyWish}>
                   <input type="hidden" name="wishId" value={w.id} />
+                  <input type="hidden" name="_sid" value={sid} />
                   <button className="text-xs text-muted hover:text-red-600">Supprimer</button>
                 </form>
               </li>
             ))}
           </ul>
         )}
-        <WishForm />
+        <WishForm sid={sid} />
       </Section>
 
       {/* Suivi */}

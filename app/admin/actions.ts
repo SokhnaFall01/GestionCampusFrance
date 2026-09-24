@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, getSession } from "@/lib/auth";
+import { getSessionFromId, type SessionPayload } from "@/lib/auth";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { logEvent } from "@/lib/events";
 import { computeProbability } from "@/lib/scoring";
@@ -28,6 +27,18 @@ function str(v: FormDataEntryValue | null): string {
   return String(v ?? "").trim();
 }
 
+// Vérifie que l'admin est authentifié via l'id de session transmis DANS le
+// formulaire (champ caché "_sid"). Le cookie n'étant pas toujours transmis lors
+// des envois de formulaires sur cet hébergement, on s'appuie sur ce champ.
+async function adminFromForm(formData: FormData): Promise<SessionPayload | null> {
+  const s = await getSessionFromId(str(formData.get("_sid")));
+  return s && s.role === "ADMIN" ? s : null;
+}
+
+async function requireAdminForm(formData: FormData): Promise<void> {
+  if (!(await adminFromForm(formData))) redirect("/login");
+}
+
 function refresh(candidateId: string) {
   revalidatePath("/admin");
   revalidatePath(`/admin/etudiants/${candidateId}`);
@@ -40,16 +51,8 @@ export interface CreateState {
 }
 
 export async function createStudent(_prev: CreateState, formData: FormData): Promise<CreateState> {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    const h = await headers();
-    const names = (h.get("cookie") || "")
-      .split(";")
-      .map((c) => c.split("=")[0].trim())
-      .filter(Boolean);
-    return {
-      error: `Session non transmise (cookies reçus : [${names.join(", ") || "AUCUN"}]). Reconnectez-vous puis réessayez.`,
-    };
+  if (!(await adminFromForm(formData))) {
+    return { error: "Session expirée. Reconnectez-vous puis réessayez." };
   }
 
   const count = await prisma.candidate.count();
@@ -129,7 +132,7 @@ export async function createStudent(_prev: CreateState, formData: FormData): Pro
 
 // --- Étape du dossier --------------------------------------------------------
 export async function updateStage(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const candidateId = str(formData.get("candidateId"));
   const stageId = str(formData.get("stageId"));
   if (!candidateId || !stageId) return;
@@ -144,7 +147,7 @@ export async function updateStage(formData: FormData) {
 
 // --- Notes privées -----------------------------------------------------------
 export async function saveNotes(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const candidateId = str(formData.get("candidateId"));
   const notes = str(formData.get("notes")) || null;
   if (!candidateId) return;
@@ -154,7 +157,7 @@ export async function saveNotes(formData: FormData) {
 
 // --- Tâches / actions --------------------------------------------------------
 export async function addTask(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const candidateId = str(formData.get("candidateId"));
   const title = str(formData.get("title"));
   const description = str(formData.get("description")) || null;
@@ -169,7 +172,7 @@ export async function addTask(formData: FormData) {
 }
 
 export async function toggleTask(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const taskId = str(formData.get("taskId"));
   const candidateId = str(formData.get("candidateId"));
   const task = await prisma.task.findUnique({ where: { id: taskId } });
@@ -182,7 +185,7 @@ export async function toggleTask(formData: FormData) {
 }
 
 export async function deleteTask(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const taskId = str(formData.get("taskId"));
   const candidateId = str(formData.get("candidateId"));
   await prisma.task.delete({ where: { id: taskId } }).catch(() => {});
@@ -191,7 +194,7 @@ export async function deleteTask(formData: FormData) {
 
 // --- Revue d'un document -----------------------------------------------------
 export async function reviewDocument(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const documentId = str(formData.get("documentId"));
   const candidateId = str(formData.get("candidateId"));
   const decision = str(formData.get("decision")); // VALIDE | REFUSE
@@ -214,7 +217,7 @@ export async function reviewDocument(formData: FormData) {
 
 // --- Évaluation / probabilité ------------------------------------------------
 export async function saveAssessment(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const candidateId = str(formData.get("candidateId"));
   if (!candidateId) return;
 
@@ -275,7 +278,7 @@ export async function saveAssessment(formData: FormData) {
 
 // --- Décision d'acceptation --------------------------------------------------
 export async function setDecision(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const candidateId = str(formData.get("candidateId"));
   const decision = str(formData.get("decision")) as Decision;
   if (!candidateId || !["EN_ATTENTE", "ACCEPTE", "REFUSE"].includes(decision)) return;
@@ -291,7 +294,7 @@ export async function setDecision(formData: FormData) {
 
 // --- Suppression d'un étudiant ----------------------------------------------
 export async function deleteStudent(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const candidateId = str(formData.get("candidateId"));
   const candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
   if (!candidate) return;
@@ -312,7 +315,7 @@ function refreshSettings() {
 
 // --- Étapes ---
 export async function addStage(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const label = str(formData.get("label"));
   if (!label) return;
   const last = await prisma.stage.findFirst({ orderBy: { order: "desc" } });
@@ -321,7 +324,7 @@ export async function addStage(formData: FormData) {
 }
 
 export async function renameStage(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const id = str(formData.get("id"));
   const label = str(formData.get("label"));
   if (!id || !label) return;
@@ -330,7 +333,7 @@ export async function renameStage(formData: FormData) {
 }
 
 export async function deleteStage(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const id = str(formData.get("id"));
   if (!id) return;
   await prisma.stage.delete({ where: { id } }).catch(() => {});
@@ -339,7 +342,7 @@ export async function deleteStage(formData: FormData) {
 
 // --- Types de documents ---
 export async function addDocumentType(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const label = str(formData.get("label"));
   if (!label) return;
 
@@ -359,7 +362,7 @@ export async function addDocumentType(formData: FormData) {
 }
 
 export async function renameDocumentType(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const id = str(formData.get("id"));
   const label = str(formData.get("label"));
   if (!id || !label) return;
@@ -368,7 +371,7 @@ export async function renameDocumentType(formData: FormData) {
 }
 
 export async function deleteDocumentType(formData: FormData) {
-  await requireAdmin();
+  await requireAdminForm(formData);
   const id = str(formData.get("id"));
   if (!id) return;
   // Cascade : supprime aussi les lignes Document liées (chez tous les candidats).

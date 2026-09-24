@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSessionId } from "@/lib/auth";
 import { computeProbability } from "@/lib/scoring";
+
+export const dynamic = "force-dynamic";
 import {
   FRENCH_LEVELS,
   SELECTIVITY_LABELS,
@@ -70,6 +73,8 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
   ]);
   if (!c) notFound();
 
+  const sid = (await getSessionId()) ?? "";
+
   const a = c.assessment;
   const scoring = computeProbability({
     bacAverage: a?.bacAverage,
@@ -114,6 +119,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
             {/* Étape */}
             <form action={updateStage} className="flex items-end gap-2">
               <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
               <div>
                 <label className="label">Étape actuelle</label>
                 <select name="stageId" defaultValue={c.stageId ?? ""} className="input">
@@ -188,12 +194,14 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
                       <div className="flex gap-1">
                         <form action={reviewDocument}>
                           <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                           <input type="hidden" name="documentId" value={d.id} />
                           <input type="hidden" name="decision" value="VALIDE" />
                           <button className="btn btn-outline py-1 px-2 text-xs">✔ Valider</button>
                         </form>
                         <form action={reviewDocument}>
                           <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                           <input type="hidden" name="documentId" value={d.id} />
                           <input type="hidden" name="decision" value="REFUSE" />
                           <button className="btn btn-outline py-1 px-2 text-xs">✖ Refuser</button>
@@ -210,6 +218,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
           <Section title="Actions à faire">
             <form action={addTask} className="flex flex-wrap gap-2 items-end mb-4">
               <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
               <div className="flex-1 min-w-[180px]">
                 <label className="label">Nouvelle action</label>
                 <input name="title" className="input" placeholder="Ex: Passer le TCF" required />
@@ -233,6 +242,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
                     <div className="flex items-center gap-2">
                       <form action={toggleTask}>
                         <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                         <input type="hidden" name="taskId" value={t.id} />
                         <button
                           className={`w-5 h-5 rounded border flex items-center justify-center text-xs ${
@@ -254,6 +264,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
                     </div>
                     <form action={deleteTask}>
                       <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                       <input type="hidden" name="taskId" value={t.id} />
                       <button className="text-muted hover:text-red-600 text-sm">Supprimer</button>
                     </form>
@@ -330,6 +341,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
 
             <form action={saveAssessment} className="space-y-3 border-t border-border pt-4">
               <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Moyenne Bac /20</label>
@@ -420,16 +432,19 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
             <div className="flex gap-2">
               <form action={setDecision}>
                 <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                 <input type="hidden" name="decision" value="ACCEPTE" />
                 <button className="btn btn-primary py-1.5">Accepter</button>
               </form>
               <form action={setDecision}>
                 <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                 <input type="hidden" name="decision" value="REFUSE" />
                 <button className="btn btn-outline py-1.5">Refuser</button>
               </form>
               <form action={setDecision}>
                 <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
                 <input type="hidden" name="decision" value="EN_ATTENTE" />
                 <button className="btn btn-outline py-1.5">En attente</button>
               </form>
@@ -440,6 +455,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
           <Section title="Notes privées">
             <form action={saveNotes} className="space-y-2">
               <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
               <textarea
                 name="notes"
                 className="input"
@@ -455,6 +471,7 @@ export default async function StudentDossier({ params }: { params: Promise<{ id:
           <Section title="Zone de gestion">
             <form action={deleteStudent}>
               <input type="hidden" name="candidateId" value={c.id} />
+                        <input type="hidden" name="_sid" value={sid} />
               <button className="text-sm text-red-600 hover:underline">
                 Supprimer cet étudiant et son dossier
               </button>
