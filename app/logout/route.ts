@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { destroySession } from "@/lib/auth";
 
-export async function GET(request: Request) {
+export const dynamic = "force-dynamic";
+
+export async function GET() {
   await destroySession();
-  return NextResponse.redirect(new URL("/login", request.url));
+  // Redirection relative (reste sur le domaine public derrière le proxy).
+  return new NextResponse(null, { status: 303, headers: { Location: "/login" } });
 }
