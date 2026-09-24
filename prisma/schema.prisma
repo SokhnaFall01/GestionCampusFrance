@@ -23,6 +23,16 @@ model User {
   name         String
   createdAt    DateTime   @default(now())
   candidate    Candidate?
+  sessions     Session[]
+}
+
+// Session de connexion (stockée en base). Le cookie ne contient que l'id.
+model Session {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 // Étape de la procédure (configurable par l'accompagnatrice).

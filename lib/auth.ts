@@ -1,17 +1,10 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./prisma";
 
-export const SESSION_COOKIE = "gcf_auth";
+export const SESSION_COOKIE = "gcf_sid";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
-
-function secretKey(): Uint8Array {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET manquant dans l'environnement (.env)");
-  return new TextEncoder().encode(secret);
-}
 
 export interface SessionPayload {
   sub: string; // userId
@@ -20,10 +13,9 @@ export interface SessionPayload {
   email: string;
 }
 
-// Options du cookie de session (partagées entre la route /api/login et ailleurs).
-// NB : PAS de maxAge. Un cookie long AVEC maxAge n'était pas transmis lors des
-// actions serveur (POST) sur cet hébergement, alors qu'un cookie de session
-// (sans maxAge) l'est. La validité reste limitée par l'expiration du jeton JWT.
+// Options du cookie de session. Le cookie ne contient qu'un identifiant court
+// (l'id de la session en base) — plus fiable qu'un long jeton, notamment lors
+// des envois de formulaires (actions serveur).
 export function sessionCookieOptions() {
   const insecure = process.env.AUTH_INSECURE_COOKIE === "true";
   const secure = process.env.NODE_ENV === "production" && !insecure;
@@ -32,45 +24,50 @@ export function sessionCookieOptions() {
     secure,
     sameSite: "lax" as const,
     path: "/",
+    maxAge: MAX_AGE,
   };
 }
 
-// Génère le jeton de session signé (JWT).
-export async function createSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ role: payload.role, name: payload.name, email: payload.email })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(payload.sub)
-    .setIssuedAt()
-    .setExpirationTime(`${MAX_AGE}s`)
-    .sign(secretKey());
+// Crée une session en base et renvoie son id (valeur du cookie).
+export async function createDbSession(userId: string): Promise<string> {
+  const expiresAt = new Date(Date.now() + MAX_AGE * 1000);
+  const session = await prisma.session.create({ data: { userId, expiresAt } });
+  return session.id;
 }
 
-export async function createSession(payload: SessionPayload): Promise<void> {
-  const token = await createSessionToken(payload);
+// Pose le cookie de session (utilisé côté serveur si besoin).
+export async function createSession(userId: string): Promise<void> {
+  const sid = await createDbSession(userId);
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, sessionCookieOptions());
+  store.set(SESSION_COOKIE, sid, sessionCookieOptions());
 }
 
 export async function destroySession(): Promise<void> {
   const store = await cookies();
+  const sid = store.get(SESSION_COOKIE)?.value;
+  if (sid) {
+    await prisma.session.delete({ where: { id: sid } }).catch(() => {});
+  }
   store.delete(SESSION_COOKIE);
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secretKey());
-    return {
-      sub: payload.sub as string,
-      role: payload.role as "ADMIN" | "CANDIDATE",
-      name: payload.name as string,
-      email: payload.email as string,
-    };
-  } catch {
-    return null;
-  }
+  const sid = store.get(SESSION_COOKIE)?.value;
+  if (!sid) return null;
+
+  const session = await prisma.session.findUnique({
+    where: { id: sid },
+    include: { user: true },
+  });
+  if (!session || session.expiresAt < new Date()) return null;
+
+  return {
+    sub: session.user.id,
+    role: session.user.role as "ADMIN" | "CANDIDATE",
+    name: session.user.name,
+    email: session.user.email,
+  };
 }
 
 // Renvoie l'admin connecté, ou redirige vers /login.

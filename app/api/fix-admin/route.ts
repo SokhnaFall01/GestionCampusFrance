@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
-import { createSessionToken, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { createDbSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 
 // OUTIL TEMPORAIRE DE DÉPANNAGE — à supprimer après diagnostic.
 // Réinitialise le mot de passe admin ET connecte directement (pose le cookie
@@ -27,14 +27,9 @@ export async function GET(request: Request) {
     });
 
     // Connecte directement : pose le cookie de session sur la redirection.
-    const token = await createSessionToken({
-      sub: admin.id,
-      role: "ADMIN",
-      name: admin.name,
-      email: admin.email,
-    });
+    const sid = await createDbSession(admin.id);
     const res = NextResponse.redirect(new URL("/admin", request.url), 303);
-    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+    res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions());
     return res;
   } catch (e) {
     return NextResponse.json(
