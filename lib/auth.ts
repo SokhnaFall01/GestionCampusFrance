@@ -3,7 +3,20 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 
-export const SESSION_COOKIE = "gcf_sid";
+export const SESSION_COOKIE = "sid";
+
+// Cookies parasites accumulés lors des tests, à nettoyer côté navigateur.
+export const LEGACY_COOKIES = [
+  "testplain",
+  "testsecure",
+  "probe_short_maxage",
+  "probe_long_nomaxage",
+  "probe_long_maxage",
+  "probe_jwtval",
+  "gcf_session",
+  "gcf_auth",
+  "gcf_sid",
+];
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
 
 export interface SessionPayload {

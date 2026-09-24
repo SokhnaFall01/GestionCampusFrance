@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
-import { createDbSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
+import { createDbSession, sessionCookieOptions, SESSION_COOKIE, LEGACY_COOKIES } from "@/lib/auth";
 
 // OUTIL TEMPORAIRE DE DÉPANNAGE — à supprimer après diagnostic.
 // Réinitialise le mot de passe admin ET connecte directement (pose le cookie
@@ -30,6 +30,7 @@ export async function GET(request: Request) {
     const sid = await createDbSession(admin.id);
     const res = NextResponse.redirect(new URL("/admin", request.url), 303);
     res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions());
+    for (const name of LEGACY_COOKIES) res.cookies.set(name, "", { path: "/", maxAge: 0 });
     return res;
   } catch (e) {
     return NextResponse.json(
