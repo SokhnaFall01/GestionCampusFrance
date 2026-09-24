@@ -1,6 +1,0 @@
-# HTTPS automatique (Let's Encrypt) pour votre domaine.
-# Le domaine est fourni par la variable DOMAIN (fichier .env).
-{$DOMAIN} {
-	encode gzip
-	reverse_proxy app:3000
-}

@@ -1,0 +1,13 @@
+# Un bloc par application. Remplacez les domaines par les vôtres.
+# Chaque "reverse_proxy" pointe vers le NOM DU CONTENEUR et son port interne.
+
+campus.tondomaine.com {
+	encode gzip
+	reverse_proxy campus_app:3000
+}
+
+# Deuxième application (décommentez et adaptez le nom du conteneur + le port) :
+# autreapp.tondomaine.com {
+# 	encode gzip
+# 	reverse_proxy nom_du_conteneur_autre_app:3000
+# }

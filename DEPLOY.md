@@ -1,79 +1,100 @@
-# Déploiement sur votre VPS (avec Docker)
+# Déploiement sur votre VPS (Docker, plusieurs apps possibles)
 
-Ce guide installe l'application sur votre serveur avec **HTTPS automatique**.
-Tout est conteneurisé : l'application, la base PostgreSQL, et le serveur web
-(Caddy) qui gère le certificat HTTPS tout seul.
+Architecture : **un proxy Caddy partagé** gère le HTTPS (certificats automatiques)
+et aiguille chaque **sous-domaine** vers la bonne application. Chaque application
+tourne dans ses propres conteneurs. On peut ainsi héberger **plusieurs apps** sur
+le même serveur / la même IP.
+
+```
+Internet ──▶ Caddy (ports 80/443, HTTPS auto)
+                 ├─ campus.tondomaine.com   ▶ campus_app:3000   (cette app + sa base)
+                 └─ autreapp.tondomaine.com ▶ autre_app:3000    (votre autre app)
+```
 
 ## Ce qu'il vous faut
-- Un VPS (Ubuntu/Debian recommandé) avec accès **SSH**.
-- Un **nom de domaine** dont l'enregistrement DNS **A** pointe vers l'**IP** du VPS.
-- Les ports **80** et **443** ouverts sur le serveur.
+- Un VPS (Ubuntu/Debian) avec accès **SSH**.
+- Un **nom de domaine**, avec un enregistrement **A** par sous-domaine, pointant
+  vers l'**IP** du VPS (ex : `campus.tondomaine.com` → IP).
+- Ports **80** et **443** ouverts.
 
 ---
 
-## 1. Faire pointer le domaine vers le serveur
-Chez votre fournisseur de domaine, créez un enregistrement **A** :
-`campus.votredomaine.com` → `IP_DE_VOTRE_VPS`
-(attendez quelques minutes que ça se propage).
+## 1. DNS
+Créez un enregistrement **A** : `campus.tondomaine.com` → `IP_DE_VOTRE_VPS`.
+(Et un autre pour votre seconde app, ex : `autreapp.tondomaine.com` → même IP.)
 
-## 2. Se connecter au serveur en SSH
+## 2. SSH + Docker (une seule fois)
 ```bash
 ssh root@IP_DE_VOTRE_VPS
-```
-
-## 3. Installer Docker (une seule fois)
-```bash
 curl -fsSL https://get.docker.com | sh
 ```
 
-## 4. Récupérer le code
+## 3. Créer le réseau partagé (une seule fois)
+```bash
+docker network create web
+```
+
+## 4. Démarrer le proxy Caddy partagé (une seule fois)
 ```bash
 git clone https://github.com/SokhnaFall01/GestionCampusFrance.git
 cd GestionCampusFrance
 git checkout claude/trusting-bohr-viapce
-```
-> Dépôt privé : Git demandera votre identifiant GitHub et un **token** (mot de
-> passe d'application GitHub). Vous pouvez aussi rendre le dépôt public le temps
-> du clone.
 
-## 5. Configurer les variables
+# Renseigner vos domaines dans le Caddyfile du proxy :
+nano deploy/proxy/Caddyfile      # remplacez campus.tondomaine.com
+cd deploy/proxy
+docker compose up -d
+cd ../..
+```
+
+## 5. Configurer et lancer l'application Campus France
 ```bash
 cp .env.docker.example .env
-nano .env
-```
-Renseignez :
-- `DOMAIN` = votre domaine (ex : `campus.votredomaine.com`, sans `https://`)
-- `POSTGRES_PASSWORD` = un mot de passe solide (lettres + chiffres)
-- `ADMIN_PASSWORD` = votre mot de passe de connexion au site
-- (`AUTH_SECRET` est déjà rempli, `ADMIN_EMAIL` aussi)
-
-Enregistrez dans nano : `Ctrl+O`, `Entrée`, puis `Ctrl+X`.
-
-## 6. Démarrer
-```bash
+nano .env       # DOMAIN, POSTGRES_PASSWORD, ADMIN_PASSWORD (AUTH_SECRET déjà rempli)
 docker compose up -d --build
 ```
-La première fois, la construction prend quelques minutes. Ensuite, l'application
-crée automatiquement les tables, votre compte admin et les étapes/documents par
-défaut.
+Au premier démarrage, l'app crée les tables, votre compte admin et les
+étapes/documents par défaut.
 
-## 7. Ouvrir le site
-Rendez-vous sur **https://votre-domaine** → connectez-vous avec votre email et
+## 6. Ouvrir le site
+**https://campus.tondomaine.com** → connectez-vous avec votre email et
 `ADMIN_PASSWORD`. 🎉
 
 ---
 
+## Ajouter votre DEUXIÈME application
+1. DNS : `autreapp.tondomaine.com` → même IP.
+2. Lancez votre autre app en Docker en la **reliant au réseau partagé `web`**
+   (dans son `docker-compose.yml` : ajoutez le réseau externe `web` au service
+   web, et donnez-lui un `container_name`, ex : `autre_app`). Ne publiez PAS ses
+   ports 80/443 (c'est Caddy qui s'en charge).
+3. Ajoutez son bloc dans `deploy/proxy/Caddyfile` :
+   ```
+   autreapp.tondomaine.com {
+       encode gzip
+       reverse_proxy autre_app:3000
+   }
+   ```
+4. Rechargez le proxy :
+   ```bash
+   cd deploy/proxy && docker compose restart && cd ../..
+   ```
+
+> ⚠️ Une seule application doit occuper les ports 80/443 : c'est **le proxy
+> Caddy partagé**. Les autres apps ne publient pas ces ports, elles sont
+> jointes au réseau `web` et référencées par leur nom de conteneur.
+
+---
+
 ## Commandes utiles
-- Voir les journaux : `docker compose logs -f app`
-- Redémarrer : `docker compose restart`
-- Mettre à jour après un changement de code :
+- Journaux de l'app : `docker compose logs -f app`
+- Journaux du proxy : `cd deploy/proxy && docker compose logs -f`
+- Mettre à jour l'app après un changement de code :
   ```bash
-  git pull
-  docker compose up -d --build
+  git pull && docker compose up -d --build
   ```
-- Tout arrêter : `docker compose down` (les données de la base et les fichiers
-  déposés sont conservés dans des volumes Docker).
+- Arrêter l'app : `docker compose down` (données et fichiers conservés dans les volumes).
 
 ## Sauvegardes
 - Base de données : `docker compose exec db pg_dump -U postgres gcf > sauvegarde.sql`
-- Fichiers déposés : ils sont dans le volume Docker `uploads_data`.
+- Fichiers déposés : volume Docker `uploads_data`.

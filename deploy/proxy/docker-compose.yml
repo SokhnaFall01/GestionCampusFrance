@@ -1,0 +1,25 @@
+# Proxy Caddy PARTAGÉ : gère le HTTPS (Let's Encrypt) pour toutes les apps du
+# serveur et aiguille chaque domaine vers la bonne application.
+# Prérequis : `docker network create web` (une seule fois).
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

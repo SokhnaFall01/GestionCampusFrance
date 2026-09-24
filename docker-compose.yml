@@ -1,3 +1,8 @@
+# Application Campus France (app + base PostgreSQL).
+# Le HTTPS est géré par le proxy Caddy PARTAGÉ (voir deploy/proxy/), afin de
+# pouvoir héberger plusieurs applications sur le même serveur.
+# Prérequis : le réseau partagé existe -> `docker network create web`
+
 services:
   db:
     image: postgres:16
@@ -8,6 +13,8 @@ services:
       POSTGRES_DB: gcf
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d gcf"]
       interval: 5s
@@ -16,6 +23,7 @@ services:
 
   app:
     build: .
+    container_name: campus_app # nom référencé par le proxy Caddy
     restart: unless-stopped
     depends_on:
       db:
@@ -31,24 +39,15 @@ services:
       NODE_ENV: production
     volumes:
       - uploads_data:/app/uploads
+    networks:
+      - internal
+      - web # réseau partagé avec le proxy Caddy
 
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+networks:
+  internal: {}
+  web:
+    external: true
 
 volumes:
   db_data:
   uploads_data:
-  caddy_data:
-  caddy_config:
