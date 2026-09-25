@@ -30,8 +30,11 @@ export interface SessionPayload {
 // (l'id de la session en base) — plus fiable qu'un long jeton, notamment lors
 // des envois de formulaires (actions serveur).
 export function sessionCookieOptions() {
-  const insecure = process.env.AUTH_INSECURE_COOKIE === "true";
-  const secure = process.env.NODE_ENV === "production" && !insecure;
+  // "secure" désactivé par défaut pour fonctionner aussi bien en http qu'en
+  // https (un cookie "Secure" est ignoré par le navigateur hors HTTPS, ce qui
+  // déconnecte l'utilisateur). Pour forcer Secure en HTTPS, définir
+  // AUTH_SECURE_COOKIE=true.
+  const secure = process.env.AUTH_SECURE_COOKIE === "true";
   return {
     httpOnly: true,
     secure,
