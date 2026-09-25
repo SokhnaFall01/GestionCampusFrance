@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
-import { createDbSession, sessionCookieOptions, SESSION_COOKIE, LEGACY_COOKIES } from "@/lib/auth";
+import { createDbSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 
 // Connexion via une route dédiée : le cookie de session est posé directement
 // sur la réponse de redirection, ce qui garantit son enregistrement par le
@@ -30,8 +30,8 @@ export async function POST(request: Request) {
 
   const dest = user.role === "ADMIN" ? "/admin" : "/candidat";
   const res = redirectTo(dest);
+  // Un seul cookie propre (pas de nettoyage multiple qui pouvait être perdu
+  // par le proxy quand plusieurs Set-Cookie étaient envoyés d'un coup).
   res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions());
-  // Ménage des cookies parasites accumulés lors des tests.
-  for (const name of LEGACY_COOKIES) res.cookies.set(name, "", { path: "/", maxAge: 0 });
   return res;
 }
